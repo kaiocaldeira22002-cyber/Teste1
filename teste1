@@ -1,0 +1,115 @@
+ LocalScript dentro de uma ScreenGui no StarterGui
+local player = game.Players.LocalPlayer
+local gui = script.Parent -- ScreenGui
+local menuFrame = gui:WaitForChild("MenuFrame")
+local minimizeButton = menuFrame:WaitForChild("MinimizeButton")
+local targetButton = menuFrame:WaitForChild("TargetButton") -- Substitui aimbot
+local highlightButton = menuFrame:WaitForChild("HighlightButton") -- Substitui ESP
+local teamCheckButton = menuFrame:WaitForChild("TeamCheckButton")
+
+-- Estado do menu
+local isMinimized = false
+local isTargeting = false
+local isHighlighting = false
+local teamCheck = false
+
+-- Função para minimizar/maximizar
+minimizeButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        menuFrame.Size = UDim2.new(0, 50, 0, 30)
+        minimizeButton.Text = "+"
+        targetButton.Visible = false
+        highlightButton.Visible = false
+        teamCheckButton.Visible = false
+    else
+        menuFrame.Size = UDim2.new(0, 300, 0, 200)
+        minimizeButton.Text = "−"
+        targetButton.Visible = true
+        highlightButton.Visible = true
+        teamCheckButton.Visible = true
+    end
+end)
+
+-- Funcionalidade: Destacar inimigos com aura (substitui ESP)
+highlightButton.MouseButton1Click:Connect(function()
+    isHighlighting = not isHighlighting
+    highlightButton.Text = isHighlighting and "Desativar Aura" or "Ativar Aura"
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= player and (not teamCheck or p.Team ~= player.Team) then
+            local char = p.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local highlight = char:FindFirstChild("Highlight") or Instance.new("Highlight", char)
+                highlight.Enabled = isHighlighting
+                highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Vermelho
+                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+            end
+        end
+    end
+end)
+
+-- Funcionalidade: Team Check
+teamCheckButton.MouseButton1Click:Connect(function()
+    teamCheck = not teamCheck
+    teamCheckButton.Text = teamCheck and "Team Check: Ligado" or "Team Check: Desligado"
+end)
+
+-- Funcionalidade: Mira automática (substitui aimbot, mira no tronco de forma justa)
+targetButton.MouseButton1Click:Connect(function()
+    isTargeting = not isTargeting
+    targetButton.Text = isTargeting and "Desativar Mira" or "Ativar Mira"
+end)
+
+-- Lógica de mira (roda a cada frame)
+game:GetService("RunService").RenderStepped:Connect(function()
+    if isTargeting and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local closestEnemy = nil
+        local minDistance = math.huge
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= player and (not teamCheck or p.Team ~= player.Team) then
+                local char = p.Character
+                if char and char:FindFirstChild("Torso") and char.Humanoid.Health > 0 then
+                    local distance = (char.Torso.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if distance < minDistance then
+                        minDistance = distance
+                        closestEnemy = char.Torso
+                    end
+                end
+            end
+        end
+        if closestEnemy then
+            game.Workspace.CurrentCamera.CFrame = CFrame.new(game.Workspace.CurrentCamera.CFrame.Position, closestEnemy.Position)
+        end
+    end
+end)
+
+-- Tornar o menu arrastável
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+menuFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = menuFrame.Position
+    end
+end)
+
+menuFrame.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        menuFrame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+menuFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
